@@ -1,0 +1,89 @@
+labels:
+  0 : "UNDEFINED"
+  1 : "CAR"
+  2 : "TRUCK"
+  3 : "BUS"
+  # Other small vehicles (e.g. pedicab) and large vehicles (e.g. construction
+  # vehicles, RV, limo, tram).
+  4 : "OTHER_VEHICLE"
+  5 : "MOTORCYCLIST"
+  6 : "BICYCLIST"
+  7 : "PEDESTRIAN"
+  8 : "SIGN"
+  9 : "TRAFFIC_LIGHT"
+  # Lamp post, traffic sign pole etc.
+  10 : "POLE"
+  # Construction cone/pole.
+  11 : "CONSTRUCTION_CONE"
+  12 : "BICYCLE"
+  13 : "MOTORCYCLE"
+  14 : "BUILDING "
+  # Bushes, tree branches, tall grasses, flowers etc.
+  15 : "VEGETATION"
+  16 : "TREE_TRUNK"
+  # Curb on the edge of roads. This does not include road boundaries if
+  # there's no curb.
+  17 : "CURB"
+  # Surface a vehicle could drive on. This include the driveway connecting
+  # parking lot and road over a section of sidewalk.
+  18 : "ROAD"
+  # Marking on the road that's specifically for defining lanes such as
+  # single/double white/yellow lines.
+  19 : "LANE_MARKER"
+  # Marking on the road other than lane markers, bumps, cateyes, railtracks
+  # etc.
+  20 : "OTHER_GROUND"
+  # Most horizontal surface that's not drivable, e.g. grassy hill,
+  # pedestrian walkway stairs etc.
+  21 : "WALKABLE"
+  # Nicely paved walkable surface when pedestrians most likely to walk on.
+  22 : "SIDEWALK"
+
+color_map: # bgr
+  0 : [32,119,181]
+  1 : [228,119,194]
+  2 : [43,160,43]
+  3 : [220,220,141]
+  4 : [197,176,213]
+  5 : [209,255,6]
+  6 : [248,182,210]
+  7 : [152,224,137]
+  8 : [29,190,208]
+  9 : [21,255,92]
+  10: [174,199,232]
+  11: [127,127,127]
+  12: [215,39,40]
+  13: [12,116,255]
+  14: [140,86,74]
+  15: [255,127,25]
+  16: [200,200,200]
+  17: [255,152,149]
+  18: [158,218,229]
+  19: [196,156,148]
+  20: [255,187,120]
+  21: [188,190,33]
+  22: [148,103,189]
+
+  # 0 : [0, 0, 0]
+  # 1 : [245, 150, 100]
+  # 2 : [180, 30, 80]
+  # 3 : [250, 80, 100]
+  # 4 : [255, 0, 0]
+  # 5 : [90, 30, 150]
+  # 6 : [200, 40, 255]
+  # 7 : [30, 30, 255]
+  # 8 : [255, 96, 51]        #
+  # 9 : [0, 0, 255]
+  # 10: [150, 240, 255]
+  # 11: [250, 255, 51]       #
+  # 12: [245, 230, 100]
+  # 13: [150, 60, 30]
+  # 14: [0, 200, 255]
+  # 15: [0, 175, 0]
+  # 16: [0, 60, 135]
+  # 17: [50, 120, 255]       # 
+  # 18: [255, 0, 255]
+  # 19: [170, 255, 150]
+  # 20: [75, 0, 175]
+  # 21: [30, 30, 255]        # 
+  # 22: [75, 0, 75]

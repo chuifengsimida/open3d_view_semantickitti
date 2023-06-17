@@ -1,3 +1,5 @@
 mid_features/
 __pycache__/
 *.pkl
+tmp
+waymo

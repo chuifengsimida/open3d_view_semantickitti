@@ -11,9 +11,9 @@ from os.path import join as join
 
 
 
-Dataset = ['SemanticPoss', 'SemanticKITTI']
-ROOT = r'D:\paper_codes\dataset\SemanticKITTI\sequences'
-config = 'semantic-kitti.yaml'
+Dataset = ['waymo']
+ROOT = r'D:/paper_codes/dataset/Waymo/validation'
+config = 'waymo.yaml'
 with open(config, encoding='utf-8') as file:
     data = yaml.load(file, Loader=yaml.FullLoader)
 mx = max(data['color_map'].keys())
@@ -22,25 +22,18 @@ for key in data['color_map']:
     color_map[key] = data['color_map'][key]
 color_map = color_map / 255.0
 point_size = 3
-max_bound = np.array([50, 50, 2]).astype(np.float64)
 
-min_bound = np.array([-50, -50, -4]).astype(np.float64)
+min_bound = np.array([-75, -75, -2]).astype(np.float64)
+max_bound = np.array([75, 75, 4]).astype(np.float64)
+
+BoundingBox = None
 BoundingBox = o3d.geometry.AxisAlignedBoundingBox(
     min_bound = min_bound,
     max_bound = max_bound 
 )
 
-# lower_bound = np.array([10,0,-5]).astype(np.float64)
-# area = np.array([20,20,10]).astype(np.float64)
-
-# BoundingBox = o3d.geometry.AxisAlignedBoundingBox(
-#     min_bound = lower_bound,
-#     max_bound = lower_bound + area 
-# ) #None
 scans = 20
 downsamping = 100000
-#print(data['color_map'])
-
 
 class AppWindow:
 
@@ -52,11 +45,10 @@ class AppWindow:
         w = self.window
         w.renderer.set_clear_color([255,255,255,0.5])
 
-        self.dataset = Dataset[1]
+        self.dataset = Dataset[0]
         self.seq = None
         self.frame = 0
 
-        self.calib = None
         self.poses = None
         self.pcs = None
         self.labels = None
@@ -101,26 +93,28 @@ class AppWindow:
         self._dataset.set_on_selection_changed(self._on_change_dataset)
         
         self._seq = gui.Combobox()
-        names = [i for i in os.listdir(ROOT) if os.path.isdir(join(ROOT, i))]
-        names.sort()
-        for name in names:
+        self.seq_names = [i for i in os.listdir(ROOT) if os.path.isdir(join(ROOT, i))]
+        self.seq_names.sort()
+        for name in self.seq_names:
             self._seq.add_item(name)
-        self.seq = names[1]
+        self.seq = self.seq_names[0]
+        self.seq_id = 0
         self._seq.set_on_selection_changed(self._on_change_seq)
 
         self._frames = gui.Slider(gui.Slider.INT)
         self._frames.set_on_value_changed(self._on_change_frame)
-        self.calib = self.parse_calibration(join(ROOT, self.seq, 'calib.txt'))
-        self.poses = self.parse_poses(join(ROOT, self.seq, 'poses.txt'), self.calib)
-        label_dirs = [item for item in os.listdir(join(ROOT, self.seq)) if os.path.isdir(join(ROOT, self.seq, item)) and item not in ['velodyne', 'voxels']]
+
+        label_dirs = [item for item in os.listdir(join(ROOT, self.seq)) if os.path.isdir(join(ROOT, self.seq, item)) and item not in ['velodyne', 'voxel']]
+
         self._label = gui.Combobox()
         for name in label_dirs:
             self._label.add_item(name)
         self.label_dir = label_dirs[0]
         self._label.set_on_selection_changed(self._on_change_label)
-
+        
         self.pcs = os.listdir(join(ROOT, self.seq, 'velodyne'))
         self.labels = os.listdir(join(ROOT, self.seq, self.label_dir))
+        self.poses = np.load(join(ROOT, self.seq, 'poses.npy')) #self.parse_poses(join(ROOT, self.seq, 'poses.txt'), self.calib)
         self.pcs.sort()
         self.labels.sort()
         self.min_frame = int(self.pcs[0][:-4])
@@ -250,25 +244,38 @@ class AppWindow:
 
     
     def _on_change_seq(self, content, index):
+        self.seq_id = index
+        if self._seq.selected_text != content:
+            self._seq.selected_text = content
+            self._seq.selected_index = index
         if content != self.seq:
             self.seq = content
-            self.calib = self.parse_calibration(join(ROOT, self.seq, 'calib.txt'))
-            self.poses = self.parse_poses(join(ROOT, self.seq, 'poses.txt'), self.calib)
+            self.poses = np.load(os.path.join(ROOT, self.seq, 'poses.npy'))
             
             self.pcs = os.listdir(join(ROOT, self.seq, 'velodyne'))
             if not os.path.exists(join(ROOT, self.seq, self.label_dir)):
-                self.label_dir = 'labels'
+                print('{} not found'.format(self.label_dir))
+                exit()
             self.labels = os.listdir(join(ROOT, self.seq, self.label_dir))
             self.pcs.sort()
             self.labels.sort()
             self.min_frame = int(self.pcs[0][:-4])
             self.max_frame = int(self.pcs[-1][:-4])
             self._frames.set_limits(self.min_frame, self.max_frame)
+
+            self.frame = 0
+            self._frames.int_value = self.frame
+
             self.update()
     
     def _on_change_frame(self, new_value):
         if new_value < self.min_frame or new_value > self.max_frame:
+            if new_value > self.max_frame and self.seq_id+1<len(self.seq_names):
+                self._on_change_seq(self.seq_names[self.seq_id+1], self.seq_id+1)
+            else:
+                return 
             return 
+
         self.frame = int(new_value)
         self._frames.int_value = self.frame
         print(self.frame)
@@ -341,37 +348,26 @@ class AppWindow:
             self.DBSCAN()
 
     def get_label(self, frame):
-        ###################
-        # origin
-        ##################
-        # label = np.fromfile(join(ROOT, self.seq, 'labels', self.labels[frame]), dtype=np.int32)
-        # label = label & 0xFFFF
-        # print(label.shape, np.max(label), np.min(label))
 
-        # #label = np.fromfile(join(ROOT, self.seq, '100', self.labels[frame]), dtype=np.int32)
-    
-        # ###################
-        # # percent labels
-        ###################
-        # label_file = os.path.join(ROOT, str(self.seq), "59899", str(frame).zfill(6)+'.npy')
-        # label = np.load(label_file).astype(np.int32)
-        # print(label.shape, np.max(label), np.min(label))
         if self.labels[frame].endswith('.label'):
             label = np.fromfile(join(ROOT, self.seq, self.label_dir, self.labels[frame]), dtype=np.int32)
             label = label & 0xFFFF
         elif self.labels[frame].endswith('.npy'):
             label = np.load(join(ROOT, self.seq, self.label_dir, self.labels[frame])).astype(np.int32)
-        else:
-            print(self.labels[frame] + 'not Found!')
+            
 
         return label
 
     def update(self):
-        if self.dataset == 'SemanticPoss' or self.dataset == 'SemanticKITTI':
-            print(join(ROOT, self.seq, 'velodyne',self.pcs[self.frame]))
+        if self.dataset == 'waymo':
+
+            assert(self.frame == int(self.pcs[self.frame].split('/')[-1][:-4]))
+            # print(join(ROOT, self.seq, 'velodyne',self.pcs[self.frame]))
             pc = np.fromfile(join(ROOT, self.seq, 'velodyne',self.pcs[self.frame]), dtype=np.float32)
             pc = pc.reshape((-1, 4))
             pc = pc[:,:3]
+
+            #pc = np.load(join(ROOT, self.seq, 'velodyne',self.pcs[self.frame]))
             pose0 = self.poses[self.frame - self.min_frame]
 
 
@@ -389,8 +385,8 @@ class AppWindow:
                 label1 = self.get_label(cur_frame)
 
 
-
-                pc1 = self.fuse_multi_scan(pc1, pose0, pose1)
+                pc1 = self.transform_point_cloud(pc1, self.poses[cur_frame].reshape(4,4), pose0.reshape(4,4))
+                #pc1 = self.fuse_multi_scan(pc1, pose0, pose1)
 
                 if len(pc1) > 0:
                     pc = np.concatenate((pc, pc1), axis=0)
@@ -414,6 +410,18 @@ class AppWindow:
                 print('idx:', idx.shape)
                 pc = pc[idx]
                 label = label[idx]
+            
+            # undefine_label_idx = label > 0
+            # pc = pc[undefine_label_idx]
+            # label = label[undefine_label_idx]
+            
+            # mask = np.logical_or(pc[:,2]>4.2, pc[:,2]<-4)
+            # pc = pc[mask]
+            # label = label[mask]
+
+            # print(np.max(pc, 0))
+            # print(np.min(pc, 0))
+
 
             self.pcd = o3d.geometry.PointCloud()
             self.pcd.points = o3d.utility.Vector3dVector(pc)
@@ -424,6 +432,8 @@ class AppWindow:
                 self.pcd = self.pcd.crop(BoundingBox)
             
             print('pc shape: {}'.format(np.asarray(self.pcd.points).shape))
+
+            print(self.pcs[self.frame], np.max(pc, 0), np.min(pc, 0))
 
             self._scene.scene.clear_geometry()
             
@@ -443,81 +453,69 @@ class AppWindow:
 
 
     
+    def transform_point_cloud(self, pc, old_pose, new_pose):
+        """Transform a point cloud from one vehicle frame to another.
 
-    def fuse_multi_scan(self, points, pose0, pose):
+        Args:
+            pc: N x d float32 point cloud, where the final three dimensions are the
+                cartesian coordinates of the points in the old vehicle frame.
+                [x,y,z,...]
+            old_pose: 4 x 4 float32 vehicle pose at the timestamp of the point cloud
+            new_pose: 4 x 4 float32 vehicle pose to transform the point cloud to.
+        """
+        # Extract the 3x3 rotation matrices and 3x1 translation vectors from the
+        # old and new poses.
+        
+        # (3, 3)
+        old_rot = old_pose[:3, :3]
+        # (3, 1)
+        old_trans = old_pose[:3, 3:4]
+        # (3, 3)
+        new_rot = new_pose[:3, :3]
+        # (3, 1)
+        new_trans = new_pose[:3, 3:4]
 
-        # pose = poses[0][idx]
+        # Extract the local cartesian coordinates from the N x 6 point cloud, adding
+        # a new axis at the end to work with np.matmul.
+        # (N, 3, 1)
+        local_cartesian_coords = pc[..., 0:3][..., np.newaxis]
 
-        hpoints = np.hstack((points[:, :3], np.ones_like(points[:, :1])))
-        # new_points = hpoints.dot(pose.T)
-        new_points = np.sum(np.expand_dims(hpoints, 2) * pose.T, axis=1)
+        # Transform the points from local coordinates to global using the old pose.
+        # (N, 3, 1)
+        global_coords = old_rot @ local_cartesian_coords + old_trans
 
-        new_points = new_points[:, :3]
-        new_coords = new_points - pose0[:3, 3]
-        # new_coords = new_coords.dot(pose0[:3, :3])
-        new_coords = np.sum(np.expand_dims(new_coords, 2) * pose0[:3, :3], axis=1)
-        new_coords = np.hstack((new_coords, points[:, 3:]))
 
-        return new_coords
+        # Transform the points from global coordinates to the new local coordinates
+        # using the new pose.
+        # (N, 3, 1)
+        new_local = np.matrix.transpose(new_rot) @ (global_coords - new_trans)
+
+        # Reassign the dimensions of the range image with the cartesian coordinates
+        # in
+        new_pc = new_local[..., 0]
+        return new_pc
     
-    def parse_calibration(self, filename):
-        """ read calibration file with given filename
 
-            Returns
-            -------
-            dict
-                Calibration matrices as 4x4 numpy arrays.
-        """
-        calib = {}
+    # def fuse_multi_scan(self, points, pose0, pose):
 
-        calib_file = open(filename)
-        for line in calib_file:
-            key, content = line.strip().split(":")
-            values = [float(v) for v in content.strip().split()]
+    #     # pose = poses[0][idx]
 
-            pose = np.zeros((4, 4))
-            pose[0, 0:4] = values[0:4]
-            pose[1, 0:4] = values[4:8]
-            pose[2, 0:4] = values[8:12]
-            pose[3, 3] = 1.0
+    #     hpoints = np.hstack((points[:, :3], np.ones_like(points[:, :1])))
+    #     # new_points = hpoints.dot(pose.T)
+    #     new_points = np.sum(np.expand_dims(hpoints, 2) * pose.T, axis=1)
 
-            calib[key] = pose
+    #     new_points = new_points[:, :3]
+    #     new_coords = new_points - pose0[:3, 3]
+    #     # new_coords = new_coords.dot(pose0[:3, :3])
+    #     new_coords = np.sum(np.expand_dims(new_coords, 2) * pose0[:3, :3], axis=1)
+    #     new_coords = np.hstack((new_coords, points[:, 3:]))
 
-        calib_file.close()
-
-        return calib
-
-    def parse_poses(self, filename, calibration):
-        """ read poses file with per-scan poses from given filename
-
-            Returns
-            -------
-            list
-                list of poses as 4x4 numpy arrays.
-        """
-        file = open(filename)
-
-        poses = []
-
-        Tr = calibration["Tr"]
-        Tr_inv = np.linalg.inv(Tr)
-
-        for line in file:
-            values = [float(v) for v in line.strip().split()]
-
-            pose = np.zeros((4, 4))
-            pose[0, 0:4] = values[0:4]
-            pose[1, 0:4] = values[4:8]
-            pose[2, 0:4] = values[8:12]
-            pose[3, 3] = 1.0
-
-            poses.append(np.matmul(Tr_inv, np.matmul(pose, Tr)))
-
-        return poses
+    #     return new_coords
+    
 
     def save_view(self):
         vis = self._scene
-        fname='saved_view.pkl'
+        fname='saved_view_waymo.pkl'
         try:
             model_matrix = np.asarray(vis.scene.camera.get_model_matrix())
             extrinsic = utils.model_matrix_to_extrinsic_matrix(model_matrix)
@@ -532,7 +530,7 @@ class AppWindow:
 
     def load_view(self):
         vis = self._scene
-        fname='saved_view.pkl'
+        fname='saved_view_waymo.pkl'
         try:
             with open(fname, 'rb') as pickle_file:
                 saved_view = load(pickle_file)

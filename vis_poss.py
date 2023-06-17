@@ -12,8 +12,8 @@ from os.path import join as join
 
 
 Dataset = ['SemanticPoss', 'SemanticKITTI']
-ROOT = r'D:\paper_codes\dataset\SemanticKITTI\sequences'
-config = 'semantic-kitti.yaml'
+ROOT = r'D:\paper_codes\dataset\SemanticPoss\sequences'
+config = 'semantic-poss.yaml'
 with open(config, encoding='utf-8') as file:
     data = yaml.load(file, Loader=yaml.FullLoader)
 mx = max(data['color_map'].keys())
@@ -22,9 +22,8 @@ for key in data['color_map']:
     color_map[key] = data['color_map'][key]
 color_map = color_map / 255.0
 point_size = 3
-max_bound = np.array([50, 50, 2]).astype(np.float64)
-
-min_bound = np.array([-50, -50, -4]).astype(np.float64)
+max_bound = np.array([75, 75, 4]).astype(np.float64)
+min_bound = np.array([-75, -75, -4]).astype(np.float64)
 BoundingBox = o3d.geometry.AxisAlignedBoundingBox(
     min_bound = min_bound,
     max_bound = max_bound 
@@ -105,14 +104,14 @@ class AppWindow:
         names.sort()
         for name in names:
             self._seq.add_item(name)
-        self.seq = names[1]
+        self.seq = names[0]
         self._seq.set_on_selection_changed(self._on_change_seq)
 
         self._frames = gui.Slider(gui.Slider.INT)
         self._frames.set_on_value_changed(self._on_change_frame)
         self.calib = self.parse_calibration(join(ROOT, self.seq, 'calib.txt'))
         self.poses = self.parse_poses(join(ROOT, self.seq, 'poses.txt'), self.calib)
-        label_dirs = [item for item in os.listdir(join(ROOT, self.seq)) if os.path.isdir(join(ROOT, self.seq, item)) and item not in ['velodyne', 'voxels']]
+        label_dirs = [item for item in os.listdir(join(ROOT, self.seq)) if os.path.isdir(join(ROOT, self.seq, item)) and item not in ['velodyne', 'voxel']]
         self._label = gui.Combobox()
         for name in label_dirs:
             self._label.add_item(name)
@@ -254,16 +253,14 @@ class AppWindow:
             self.seq = content
             self.calib = self.parse_calibration(join(ROOT, self.seq, 'calib.txt'))
             self.poses = self.parse_poses(join(ROOT, self.seq, 'poses.txt'), self.calib)
-            
             self.pcs = os.listdir(join(ROOT, self.seq, 'velodyne'))
-            if not os.path.exists(join(ROOT, self.seq, self.label_dir)):
-                self.label_dir = 'labels'
             self.labels = os.listdir(join(ROOT, self.seq, self.label_dir))
             self.pcs.sort()
             self.labels.sort()
             self.min_frame = int(self.pcs[0][:-4])
             self.max_frame = int(self.pcs[-1][:-4])
             self._frames.set_limits(self.min_frame, self.max_frame)
+
             self.update()
     
     def _on_change_frame(self, new_value):
@@ -353,7 +350,7 @@ class AppWindow:
         # ###################
         # # percent labels
         ###################
-        # label_file = os.path.join(ROOT, str(self.seq), "59899", str(frame).zfill(6)+'.npy')
+        # label_file = os.path.join(ROOT, str(self.seq), "0", str(frame).zfill(6)+'.npy')
         # label = np.load(label_file).astype(np.int32)
         # print(label.shape, np.max(label), np.min(label))
         if self.labels[frame].endswith('.label'):
@@ -361,8 +358,7 @@ class AppWindow:
             label = label & 0xFFFF
         elif self.labels[frame].endswith('.npy'):
             label = np.load(join(ROOT, self.seq, self.label_dir, self.labels[frame])).astype(np.int32)
-        else:
-            print(self.labels[frame] + 'not Found!')
+            
 
         return label
 
@@ -517,7 +513,7 @@ class AppWindow:
 
     def save_view(self):
         vis = self._scene
-        fname='saved_view.pkl'
+        fname='saved_view_poss.pkl'
         try:
             model_matrix = np.asarray(vis.scene.camera.get_model_matrix())
             extrinsic = utils.model_matrix_to_extrinsic_matrix(model_matrix)
@@ -532,7 +528,7 @@ class AppWindow:
 
     def load_view(self):
         vis = self._scene
-        fname='saved_view.pkl'
+        fname='saved_view_poss.pkl'
         try:
             with open(fname, 'rb') as pickle_file:
                 saved_view = load(pickle_file)
@@ -566,3 +562,4 @@ def main():
 if __name__ == '__main__':
     main()
         
+
