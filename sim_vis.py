@@ -81,7 +81,7 @@ class ShowWindow:
             self.idx = 0
         key = names[self.idx]
 
-        min_bound = np.array([20, 20, 5])
+        min_bound = np.array([50, 50, 5])
         mask = np.all(data['pc']>-min_bound, 1) & np.all(data['pc']<min_bound, 1)
         print(mask.shape)
         

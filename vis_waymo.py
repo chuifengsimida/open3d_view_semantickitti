@@ -13,7 +13,7 @@ from os.path import join as join
 
 Dataset = ['waymo']
 ROOT = r'D:/paper_codes/dataset/Waymo/validation'
-config = 'waymo.yaml'
+config = 'waymo_kitti_color.yaml'
 with open(config, encoding='utf-8') as file:
     data = yaml.load(file, Loader=yaml.FullLoader)
 mx = max(data['color_map'].keys())
@@ -438,7 +438,7 @@ class AppWindow:
             self._scene.scene.clear_geometry()
             
             self._scene.scene.add_geometry('frame {}'.format(self.frame),self.pcd, self.geometry_render)
-
+            
             self._filter_plane.checked = False
             self.ransac_pcd = self.pcd
 

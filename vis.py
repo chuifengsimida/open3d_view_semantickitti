@@ -25,6 +25,9 @@ point_size = 3
 max_bound = np.array([50, 50, 2]).astype(np.float64)
 
 min_bound = np.array([-50, -50, -4]).astype(np.float64)
+
+# max_bound = np.array([30, 30, 2]).astype(np.float64)
+# min_bound = np.array([0, -30, -4]).astype(np.float64)
 BoundingBox = o3d.geometry.AxisAlignedBoundingBox(
     min_bound = min_bound,
     max_bound = max_bound 
@@ -105,18 +108,29 @@ class AppWindow:
         names.sort()
         for name in names:
             self._seq.add_item(name)
-        self.seq = names[1]
+        self.seq = names[0]
         self._seq.set_on_selection_changed(self._on_change_seq)
 
         self._frames = gui.Slider(gui.Slider.INT)
         self._frames.set_on_value_changed(self._on_change_frame)
         self.calib = self.parse_calibration(join(ROOT, self.seq, 'calib.txt'))
         self.poses = self.parse_poses(join(ROOT, self.seq, 'poses.txt'), self.calib)
-        label_dirs = [item for item in os.listdir(join(ROOT, self.seq)) if os.path.isdir(join(ROOT, self.seq, item)) and item not in ['velodyne', 'voxels']]
+        
+        label_dirs = []
+        for seq in names:
+            items = os.listdir(join(ROOT, seq))
+            
+            for item in items:
+                if os.path.isdir(join(ROOT, seq, item)) and item not in label_dirs and item not in ['voxels', 'velodyne']:
+                    label_dirs.append(item)
+            if seq == self.seq:
+                self.label_dir = label_dirs[-1]  
+        print('Debug: ',self.label_dir)
+        #label_dirs = [item for item in os.listdir(join(ROOT, self.seq)) if os.path.isdir(join(ROOT, self.seq, item)) and item not in ['velodyne', 'voxels']]
         self._label = gui.Combobox()
         for name in label_dirs:
             self._label.add_item(name)
-        self.label_dir = label_dirs[0]
+        #self.label_dir = label_dirs[0]
         self._label.set_on_selection_changed(self._on_change_label)
 
         self.pcs = os.listdir(join(ROOT, self.seq, 'velodyne'))
@@ -362,7 +376,7 @@ class AppWindow:
         elif self.labels[frame].endswith('.npy'):
             label = np.load(join(ROOT, self.seq, self.label_dir, self.labels[frame])).astype(np.int32)
         else:
-            print(self.labels[frame] + 'not Found!')
+            print(self.labels[frame] + ' not Found!')
 
         return label
 
@@ -415,9 +429,15 @@ class AppWindow:
                 pc = pc[idx]
                 label = label[idx]
 
+            # mask = label==10
+            # pc = pc[mask]
+            # label = label[mask]
+            
             self.pcd = o3d.geometry.PointCloud()
             self.pcd.points = o3d.utility.Vector3dVector(pc)
             color = color_map[label]
+
+            
             self.pcd.colors = o3d.utility.Vector3dVector(color)
 
             if BoundingBox is not None:
@@ -543,13 +563,24 @@ class AppWindow:
             print("Can't find file", e)
 
     def DBSCAN(self):
-
+        self.color_dbscan = None
+        if self.color_dbscan == None:
+            with open('waymo.yaml', encoding='utf-8') as file:
+                data = yaml.load(file, Loader=yaml.FullLoader)
+            mx = max(data['color_map'].keys())
+            self.color_dbscan  = np.zeros((mx+1, 3))
+            for key in data['color_map']:
+                self.color_dbscan[key] = data['color_map'][key]
+            self.color_dbscan = self.color_dbscan / 255.0
         labels = np.array(self.ransac_pcd.cluster_dbscan(eps=self.dbscan_eps, min_points=self.dbscan_min_points))
         
         tmp_pcd = self.ransac_pcd
-        color_norm = ((labels-np.min(labels, 0))/(np.max(labels, 0)-np.min(labels, 0))).reshape((-1, 1))
-        colors = np.concatenate([color_norm, 1-color_norm, 0.5-color_norm], 1)
- 
+        # color_norm = ((labels-np.min(labels, 0))/(np.max(labels, 0)-np.min(labels, 0))).reshape((-1, 1))
+        # colors = np.concatenate([color_norm, 1-color_norm, color_norm], 1)
+        labels = (labels+1)%20
+
+        colors = self.color_dbscan[labels]
+
         tmp_pcd.colors = o3d.utility.Vector3dVector(colors)
         self._scene.scene.clear_geometry()
         self._scene.scene.add_geometry('frame {}'.format(self.frame),tmp_pcd, self.geometry_render)

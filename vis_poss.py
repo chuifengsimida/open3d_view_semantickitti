@@ -13,7 +13,7 @@ from os.path import join as join
 
 Dataset = ['SemanticPoss', 'SemanticKITTI']
 ROOT = r'D:\paper_codes\dataset\SemanticPoss\sequences'
-config = 'semantic-poss.yaml'
+config = 'semantic-poss_kitti_color.yaml'
 with open(config, encoding='utf-8') as file:
     data = yaml.load(file, Loader=yaml.FullLoader)
 mx = max(data['color_map'].keys())
@@ -28,6 +28,15 @@ BoundingBox = o3d.geometry.AxisAlignedBoundingBox(
     min_bound = min_bound,
     max_bound = max_bound 
 )
+
+
+with open('waymo.yaml', encoding='utf-8') as file:
+    data1 = yaml.load('waymo.yaml', Loader=yaml.FullLoader)
+mx1 = max(data['color_map'].keys())
+color_map_dbscan = np.zeros((mx1+1, 3))
+for key in data['color_map']:
+    color_map_dbscan[key] = data['color_map'][key]
+color_map_dbscan = color_map_dbscan / 255.0
 
 # lower_bound = np.array([10,0,-5]).astype(np.float64)
 # area = np.array([20,20,10]).astype(np.float64)
@@ -104,7 +113,7 @@ class AppWindow:
         names.sort()
         for name in names:
             self._seq.add_item(name)
-        self.seq = names[0]
+        self.seq = names[2]
         self._seq.set_on_selection_changed(self._on_change_seq)
 
         self._frames = gui.Slider(gui.Slider.INT)
@@ -543,9 +552,10 @@ class AppWindow:
         labels = np.array(self.ransac_pcd.cluster_dbscan(eps=self.dbscan_eps, min_points=self.dbscan_min_points))
         
         tmp_pcd = self.ransac_pcd
-        color_norm = ((labels-np.min(labels, 0))/(np.max(labels, 0)-np.min(labels, 0))).reshape((-1, 1))
-        colors = np.concatenate([color_norm, 1-color_norm, 0.5-color_norm], 1)
- 
+        #color_norm = ((labels-np.min(labels, 0))/(np.max(labels, 0)-np.min(labels, 0))).reshape((-1, 1))
+        #colors = np.concatenate([color_norm, 1-color_norm, 0.5-color_norm], 1)
+        colors = color_map_dbscan[(labels+1)%23]
+        print(labels.shape, np.min(labels), np.max(labels))
         tmp_pcd.colors = o3d.utility.Vector3dVector(colors)
         self._scene.scene.clear_geometry()
         self._scene.scene.add_geometry('frame {}'.format(self.frame),tmp_pcd, self.geometry_render)
